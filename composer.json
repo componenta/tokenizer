@@ -1,0 +1,20 @@
+{
+    "name": "componenta/tokenizer",
+    "description": "Token-based PHP source inspection helpers for Componenta",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Componenta\\Tokenizer\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Componenta\\Tokenizer\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable"
+}
