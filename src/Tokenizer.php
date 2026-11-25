@@ -41,41 +41,14 @@ final readonly class Tokenizer implements TokenizerInterface
         $isFinal = false;
         $isReadonly = false;
 
-        // Only declaration-opening braces increment classDepth; all closing
-        // braces decrement it. This is sufficient for valid PHP since named
-        // declarations cannot nest inside class bodies.
-        $classDepth = 0;
-        $pendingClassBlock = false;
-
         $afterDoubleColon = false;
 
         for ($i = 0; $i < $tokenCount; $i++) {
             $token = $tokens[$i];
 
-            if ($token === '{') {
-                if ($pendingClassBlock) {
-                    $classDepth++;
-                    $pendingClassBlock = false;
-                }
-
-                continue;
-            }
-
-            if ($token === '}') {
-                if ($classDepth > 0) {
-                    $classDepth--;
-                }
-
-                continue;
-            }
-
-            if ($token === ';') {
-                $pendingClassBlock = false;
-
-                continue;
-            }
-
             if (!is_array($token)) {
+                $isAbstract = $isFinal = $isReadonly = $afterDoubleColon = false;
+
                 continue;
             }
 
@@ -97,17 +70,21 @@ final readonly class Tokenizer implements TokenizerInterface
                 continue;
             }
 
-            if ($tokenId === T_NAMESPACE) {
+            if ($tokenId === T_NAMESPACE && !$afterDoubleColon) {
                 $namespaceResult = $this->parseNamespace($tokens, $i, $tokenCount);
-                $currentNamespace = $namespaceResult['namespace'];
-                $i = $namespaceResult['nextIndex'] - 1;
+                if ($namespaceResult !== null) {
+                    $currentNamespace = $namespaceResult['namespace'];
+                    $i = $namespaceResult['nextIndex'] - 1;
+                }
+
+
                 $isAbstract = $isFinal = $isReadonly = $afterDoubleColon = false;
 
                 continue;
             }
 
-            // Skip top-level use imports (not trait use inside class bodies)
-            if ($tokenId === T_USE && $classDepth === 0) {
+            // Skip imports and trait use, not closure captures or member names.
+            if ($tokenId === T_USE && !$afterDoubleColon && $this->isUseStatement($tokens, $i, $tokenCount)) {
                 $i = $this->skipUseStatement($tokens, $i, $tokenCount);
                 $isAbstract = $isFinal = $isReadonly = $afterDoubleColon = false;
 
@@ -143,31 +120,29 @@ final readonly class Tokenizer implements TokenizerInterface
                     continue;
                 }
 
-                $pendingClassBlock = true;
+                // Valid named declarations have an identifier after the keyword.
+                // Anonymous classes and contextual member names do not.
+                [
+                    'flag' => $searchFlag,
+                    'type' => $type,
+                    'modifiers' => $supportsModifiers,
+                ] = self::DECLARATION_MAP[$tokenId];
 
-                if ($classDepth === 0) {
-                    [
-                        'flag' => $searchFlag,
-                        'type' => $type,
-                        'modifiers' => $supportsModifiers,
-                    ] = self::DECLARATION_MAP[$tokenId];
+                if (($mode & $searchFlag) !== 0) {
+                    $result = $this->parseDeclaration(
+                        $tokens,
+                        $i,
+                        $tokenCount,
+                        $currentNamespace,
+                        $type,
+                        $supportsModifiers ? $isAbstract : false,
+                        $supportsModifiers ? $isFinal : false,
+                        $supportsModifiers ? $isReadonly : false,
+                    );
 
-                    if (($mode & $searchFlag) !== 0) {
-                        $result = $this->parseDeclaration(
-                            $tokens,
-                            $i,
-                            $tokenCount,
-                            $currentNamespace,
-                            $type,
-                            $supportsModifiers ? $isAbstract : false,
-                            $supportsModifiers ? $isFinal : false,
-                            $supportsModifiers ? $isReadonly : false,
-                        );
-
-                        if ($result !== null) {
-                            $declarations[] = $result['declaration'];
-                            $i = $result['nextIndex'] - 1;
-                        }
+                    if ($result !== null) {
+                        $declarations[] = $result['declaration'];
+                        $i = $result['nextIndex'] - 1;
                     }
                 }
 
@@ -207,9 +182,9 @@ final readonly class Tokenizer implements TokenizerInterface
 
     /**
      * @param array<int, array{int, string, int}|string> $tokens
-     * @return array{namespace: string, nextIndex: int}
+     * @return array{namespace: string, nextIndex: int}|null
      */
-    private function parseNamespace(array $tokens, int $index, int $tokenCount): array
+    private function parseNamespace(array $tokens, int $index, int $tokenCount): ?array
     {
         $index++;
         $namespace = '';
@@ -222,9 +197,7 @@ final readonly class Tokenizer implements TokenizerInterface
                     break;
                 }
 
-                $index++;
-
-                continue;
+                return null;
             }
 
             $tokenId = $token[0];
@@ -235,17 +208,45 @@ final readonly class Tokenizer implements TokenizerInterface
                 || $tokenId === T_NAME_FULLY_QUALIFIED
             ) {
                 $namespace .= $token[1];
-            } elseif ($tokenId !== T_WHITESPACE) {
-                break;
+            } elseif (!in_array($tokenId, [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                return null;
             }
 
             $index++;
+        }
+
+        if ($index >= $tokenCount || ($tokens[$index] === ';' && $namespace === '')) {
+            return null;
         }
 
         return [
             'namespace' => ltrim($namespace, '\\'),
             'nextIndex' => $index,
         ];
+    }
+
+    /**
+     * @param array<int, array{int, string, int}|string> $tokens
+     */
+    private function isUseStatement(array $tokens, int $index, int $tokenCount): bool
+    {
+        for ($index++; $index < $tokenCount; $index++) {
+            $token = $tokens[$index];
+            if (!is_array($token)) {
+                return false;
+            }
+
+            if (in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            return in_array($token[0], [
+                T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED,
+                T_NAME_RELATIVE, T_NS_SEPARATOR, T_FUNCTION, T_CONST,
+            ], true);
+        }
+
+        return false;
     }
 
     /**
