@@ -64,19 +64,12 @@ final readonly class Tokenizer implements TokenizerInterface
                 continue;
             }
 
-            if ($tokenId === T_ATTRIBUTE) {
-                $i = $this->skipAttribute($tokens, $i, $tokenCount);
-
-                continue;
-            }
-
             if ($tokenId === T_NAMESPACE && !$afterDoubleColon) {
                 $namespaceResult = $this->parseNamespace($tokens, $i, $tokenCount);
                 if ($namespaceResult !== null) {
                     $currentNamespace = $namespaceResult['namespace'];
                     $i = $namespaceResult['nextIndex'] - 1;
                 }
-
 
                 $isAbstract = $isFinal = $isReadonly = $afterDoubleColon = false;
 
@@ -155,29 +148,6 @@ final readonly class Tokenizer implements TokenizerInterface
         }
 
         return $declarations;
-    }
-
-    /**
-     * @param array<int, array{int, string, int}|string> $tokens
-     */
-    private function skipAttribute(array $tokens, int $index, int $tokenCount): int
-    {
-        $depth = 1;
-        $index++;
-
-        while ($index < $tokenCount && $depth > 0) {
-            $token = $tokens[$index];
-
-            if ($token === '[') {
-                $depth++;
-            } elseif ($token === ']') {
-                $depth--;
-            }
-
-            $index++;
-        }
-
-        return $index - 1;
     }
 
     /**

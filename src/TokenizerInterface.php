@@ -7,7 +7,9 @@ namespace Componenta\Tokenizer;
 /**
  * Finds class, interface, trait, and enum declarations in PHP source code.
  *
- * Anonymous classes are ignored. Both simple (`namespace Foo;`) and
+ * Named declarations inside function bodies (including PHP 8.5 attribute
+ * callbacks) are discovered without executing them. Anonymous classes are ignored.
+ * Both simple (`namespace Foo;`) and
  * bracketed (`namespace Foo { }`) namespace syntax are supported.
  *
  * Implementations assume syntactically valid PHP input.
