@@ -14,9 +14,9 @@ final class ClassInfo
     private ?string $cachedNamespace = null;
 
     /**
-     * Lazy-loaded reflector. Requires the declaration to be loaded in memory.
+     * Lazy-loaded reflector. May trigger autoloading.
      *
-     * @throws \ReflectionException If the declaration is not loaded
+     * @throws \ReflectionException If the declaration cannot be resolved
      */
     public ReflectionClass|ReflectionEnum $reflector {
         get {
@@ -94,7 +94,7 @@ final class ClassInfo
     }
 
     /**
-     * @throws \ReflectionException If the declaration is not loaded
+     * @throws \ReflectionException If the declaration cannot be resolved
      */
     private function createReflector(): ReflectionClass|ReflectionEnum
     {

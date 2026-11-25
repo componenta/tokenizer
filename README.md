@@ -84,10 +84,14 @@ Available flags:
 
 ## Reflection
 
-`ClassInfo::$reflector` is lazy and requires the declaration to already be loaded.
+`ClassInfo::$reflector` is lazy and may trigger autoloading. `exists()` checks whether the declaration is already loaded without triggering autoloading.
 
 ```php
 if ($info->exists()) {
     $reflector = $info->reflector;
 }
 ```
+
+## Development
+
+Run `composer install` and `composer test`.
