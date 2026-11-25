@@ -156,43 +156,36 @@ final readonly class Tokenizer implements TokenizerInterface
      */
     private function parseNamespace(array $tokens, int $index, int $tokenCount): ?array
     {
-        $index++;
         $namespace = '';
 
-        while ($index < $tokenCount) {
+        for ($index++; $index < $tokenCount; $index++) {
             $token = $tokens[$index];
 
             if (!is_array($token)) {
-                if ($token === ';' || $token === '{') {
-                    break;
+                if ($token === '{' || ($token === ';' && $namespace !== '')) {
+                    return ['namespace' => $namespace, 'nextIndex' => $index];
                 }
 
                 return null;
             }
 
-            $tokenId = $token[0];
+            [$id, $text] = $token;
+            if ($id === T_WHITESPACE || $id === T_COMMENT || $id === T_DOC_COMMENT) {
+                continue;
+            }
 
-            if ($tokenId === T_STRING
-                || $tokenId === T_NS_SEPARATOR
-                || $tokenId === T_NAME_QUALIFIED
-                || $tokenId === T_NAME_FULLY_QUALIFIED
+            // PHP permits reserved keywords as single-segment namespace names.
+            // Without TOKEN_PARSE these are still emitted as keyword tokens.
+            if ($namespace !== '' || ($id !== T_STRING && $id !== T_NAME_QUALIFIED
+                && preg_match('/\A[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*\z/', $text) !== 1)
             ) {
-                $namespace .= $token[1];
-            } elseif (!in_array($tokenId, [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
                 return null;
             }
 
-            $index++;
+            $namespace = $text;
         }
 
-        if ($index >= $tokenCount || ($tokens[$index] === ';' && $namespace === '')) {
-            return null;
-        }
-
-        return [
-            'namespace' => ltrim($namespace, '\\'),
-            'nextIndex' => $index,
-        ];
+        return null;
     }
 
     /**
