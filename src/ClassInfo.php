@@ -9,18 +9,18 @@ use ReflectionEnum;
 
 final class ClassInfo
 {
-    private null|ReflectionClass|ReflectionEnum $cachedReflector = null;
     private ?string $cachedName = null;
     private ?string $cachedNamespace = null;
 
     /**
-     * Lazy-loaded reflector. May trigger autoloading.
+     * A fresh reflector for this declaration. May trigger autoloading.
+     * Reflectors are mutable; no instance is shared with later property reads.
      *
      * @throws \ReflectionException If the declaration cannot be resolved
      */
     public ReflectionClass|ReflectionEnum $reflector {
         get {
-            return $this->cachedReflector ??= $this->createReflector();
+            return $this->createReflector();
         }
     }
 
@@ -89,7 +89,8 @@ final class ClassInfo
             DeclarationType::Interface_ => interface_exists($this->fullyQualifiedName, false),
             DeclarationType::Trait_ => trait_exists($this->fullyQualifiedName, false),
             DeclarationType::Enum_ => enum_exists($this->fullyQualifiedName, false),
-            DeclarationType::Class_ => class_exists($this->fullyQualifiedName, false),
+            DeclarationType::Class_ => class_exists($this->fullyQualifiedName, false)
+                && !enum_exists($this->fullyQualifiedName, false),
         };
     }
 

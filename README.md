@@ -84,7 +84,8 @@ Available flags:
 
 ## Reflection
 
-`ClassInfo::$reflector` is lazy and may trigger autoloading. `exists()` checks whether the declaration is already loaded without triggering autoloading.
+`ClassInfo::$reflector` is lazy and may trigger autoloading. Each access creates
+an independent reflector so callers cannot mutate the reflected identity for later reads. `exists()` checks whether the declaration is already loaded without triggering autoloading and checks the declared kind.
 
 ```php
 if ($info->exists()) {
