@@ -16,7 +16,7 @@ final class ClassInfo
      * A fresh reflector for this declaration. May trigger autoloading.
      * Reflectors are mutable; no instance is shared with later property reads.
      *
-     * @throws \ReflectionException If the declaration cannot be resolved
+     * @throws \ReflectionException If the declaration cannot be resolved or its kind has changed
      */
     public ReflectionClass|ReflectionEnum $reflector {
         get {
@@ -95,13 +95,30 @@ final class ClassInfo
     }
 
     /**
-     * @throws \ReflectionException If the declaration cannot be resolved
+     * @throws \ReflectionException If the declaration cannot be resolved or its kind has changed
      */
     private function createReflector(): ReflectionClass|ReflectionEnum
     {
-        return match ($this->type) {
+        $reflection = match ($this->type) {
             DeclarationType::Enum_ => new ReflectionEnum($this->fullyQualifiedName),
             default => new ReflectionClass($this->fullyQualifiedName),
         };
+
+        $matches = match ($this->type) {
+            DeclarationType::Class_ => !$reflection->isInterface() && !$reflection->isTrait() && !$reflection->isEnum(),
+            DeclarationType::Interface_ => $reflection->isInterface(),
+            DeclarationType::Trait_ => $reflection->isTrait(),
+            DeclarationType::Enum_ => true,
+        };
+
+        if (!$matches) {
+            throw new \ReflectionException(sprintf(
+                'Declaration "%s" no longer matches expected kind "%s".',
+                $this->fullyQualifiedName,
+                $this->type->value,
+            ));
+        }
+
+        return $reflection;
     }
 }

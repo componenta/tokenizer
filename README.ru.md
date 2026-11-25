@@ -101,3 +101,5 @@ if ($info->exists()) {
 ## Разработка
 
 Выполните `composer install` и `composer test`.
+
+При обращении к `reflector` несовпадение вида загруженного объявления с метаданными вызывает `ReflectionException`.
