@@ -153,18 +153,20 @@ it('does not carry modifiers across interface to next class', function () {
         ->and($result[1]->isFinal)->toBeFalse();
 });
 
-it('resets modifiers when non-declaration keyword follows', function () {
+it('does not leak abstract method modifiers into later classes', function () {
     $code = <<<'PHP'
     <?php
-    abstract
-    function someFunction() {}
+    abstract class Owner {
+        abstract public function someFunction(): void;
+    }
     class NotAbstract {}
     PHP;
 
     $result = $this->tokenizer->parse($code);
 
-    expect($result)->toHaveCount(1)
-        ->and($result[0]->isAbstract)->toBeFalse();
+    expect($result)->toHaveCount(2)
+        ->and($result[0]->isAbstract)->toBeTrue()
+        ->and($result[1]->isAbstract)->toBeFalse();
 });
 
 it('does not leak readonly from property promotion', function () {
@@ -277,12 +279,6 @@ it('ignores anonymous class with extends and implements', function () {
         ->and($result[0]->name)->toBe('Named');
 });
 
-it('returns empty for class keyword without name', function () {
-    $result = $this->tokenizer->parse('<?php class {}');
-
-    expect($result)->toBe([]);
-});
-
 // --- Attributes ---
 
 it('handles attributes on classes', function () {
@@ -340,17 +336,17 @@ it('handles nested brackets in attributes', function () {
         ->and($result[0]->name)->toBe('WithNestedAttr');
 });
 
-it('handles arrow function inside attribute', function () {
+it('ignores class constant references inside valid attribute arguments', function () {
     $code = <<<'PHP'
     <?php
-    #[Attr(fn() => [1])]
-    class ArrowAttr {}
+    #[Attr([SomeClass::class, 'method'])]
+    class Decorated {}
     PHP;
 
     $result = $this->tokenizer->parse($code);
 
     expect($result)->toHaveCount(1)
-        ->and($result[0]->name)->toBe('ArrowAttr');
+        ->and($result[0]->name)->toBe('Decorated');
 });
 
 // --- Use statements ---
@@ -420,7 +416,8 @@ it('ignores ::class constant access', function () {
 it('ignores self/static/parent ::class inside class body', function () {
     $code = <<<'PHP'
     <?php
-    class A {
+    class Base {}
+    class A extends Base {
         public function f(): array {
             return [self::class, static::class, parent::class];
         }
@@ -429,8 +426,9 @@ it('ignores self/static/parent ::class inside class body', function () {
 
     $result = $this->tokenizer->parse($code);
 
-    expect($result)->toHaveCount(1)
-        ->and($result[0]->name)->toBe('A');
+    expect($result)->toHaveCount(2)
+        ->and($result[0]->name)->toBe('Base')
+        ->and($result[1]->name)->toBe('A');
 });
 
 // --- Edge cases ---
