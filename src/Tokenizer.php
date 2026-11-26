@@ -170,6 +170,10 @@ final readonly class Tokenizer implements TokenizerInterface
             }
 
             [$id, $text] = $token;
+            if ($id === T_CLOSE_TAG && $namespace !== '') {
+                return ['namespace' => $namespace, 'nextIndex' => $index];
+            }
+
             if ($id === T_WHITESPACE || $id === T_COMMENT || $id === T_DOC_COMMENT) {
                 continue;
             }
@@ -234,6 +238,9 @@ final readonly class Tokenizer implements TokenizerInterface
                 } elseif ($token === ';' && $braceDepth === 0) {
                     return $index;
                 }
+            } elseif ($token[0] === T_CLOSE_TAG && $braceDepth === 0) {
+                // A PHP closing tag also terminates a statement.
+                return $index;
             }
 
             $index++;
