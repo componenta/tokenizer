@@ -1,5 +1,7 @@
 # Componenta Tokenizer
 
+[Русская версия](README.ru.md)
+
 PHP declaration tokenizer used by class discovery.
 
 ## Installation
@@ -27,7 +29,11 @@ composer require componenta/tokenizer
 - `ClassInfo`: immutable declaration metadata with lazy reflection.
 - `DeclarationType`: enum for class, interface, trait, and enum declarations.
 
-Anonymous classes are ignored. The tokenizer assumes syntactically valid PHP input.
+Parsing is lexical: it does not execute the source or autoload declarations.
+Named declarations are returned in source order, including conditional declarations,
+function bodies and PHP 8.5 static attribute callbacks. Anonymous classes are ignored.
+Both namespace forms and statement termination by PHP closing tags are supported.
+Input must be syntactically valid PHP; behavior on malformed source is undefined.
 
 ## Parsing Source
 
@@ -62,7 +68,7 @@ $info->isConcrete;         // true
 
 ## Search Modes
 
-Use bitmasks to restrict declaration types:
+Use bitmasks to restrict declaration types. A zero mask selects no declarations.
 
 ```php
 use Componenta\Tokenizer\TokenizerInterface;
@@ -82,16 +88,27 @@ Available flags:
 - `SEARCH_ENUMS`
 - `SEARCH_ALL`
 
+`isClass`, `isInterface`, `isTrait` and `isEnum` describe the declaration kind.
+`isAbstract`, `isFinal` and `isReadonly` describe explicit class modifiers,
+not implicit runtime properties of interfaces or enums. `isConcrete` means a
+non-abstract class; it does not guarantee an accessible constructor.
+`name` is the short name and `namespace` is empty for global declarations.
+
+`ClassInfo` can also be constructed directly with a fully qualified name, a
+`DeclarationType` (default: `Class_`) and the three modifier flags.
+
 ## Reflection
 
 `ClassInfo::$reflector` is lazy and may trigger autoloading. Each access creates
-an independent reflector so callers cannot mutate the reflected identity for later reads. `exists()` checks whether the declaration is already loaded without triggering autoloading and checks the declared kind. Reflection also rejects a loaded declaration of a different kind with `ReflectionException`.
+an independent reflector so callers cannot mutate the reflected identity for later reads. `exists()` checks whether the declaration is already loaded without triggering autoloading and checks the declared kind. An unresolved declaration or a mismatch of declaration kinds throws `ReflectionException`.
 
 ```php
 if ($info->exists()) {
     $reflector = $info->reflector;
 }
 ```
+
+For source-only inspection, read metadata without accessing `reflector`.
 
 ## Development
 
